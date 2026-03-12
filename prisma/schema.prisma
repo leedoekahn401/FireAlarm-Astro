@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String?  @db.VarChar(255)
+  email         String   @unique @db.VarChar(255)
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @updatedAt @db.Timestamptz
+
+  sessions Session[]
+  accounts Account[]
+  orders   Order[]
+  chats    Chat[]
+  carts    Cart[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  accountId             String
+  providerId            String
+  userId                String    @db.Uuid
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+// E-COMMERCE CATALOG
+model Product {
+  uuid            String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name            String                  @db.VarChar(255)
+  price           Decimal                 @db.Decimal(10, 2)
+  stock           Int                     @default(0)
+  brand           String?                 @db.VarChar(100)
+  type            String?                 @db.VarChar(50)
+  info            Json?                   @db.JsonB
+  description     String?
+  picture_urls    String[]
+  order_items     OrderItem[]
+  cart_items      CartItem[]
+  recommendations MessageRecommendation[]
+  created_at      DateTime                @default(now()) @db.Timestamptz
+
+  @@map("products")
+}
+
+// ORDERS & TRANSACTIONS
+model Order {
+  uuid             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String?  @db.Uuid
+  total            Decimal  @db.Decimal(10, 2)
+  discount         Decimal? @default(0) @db.Decimal(10, 2)
+  status           String?  @default("pending") @db.VarChar(50)
+  shipping_address String?
+  payment_status   String?  @default("unpaid") @db.VarChar(50)
+  created_at       DateTime @default(now()) @db.Timestamptz
+
+  user        User?       @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  order_items OrderItem[]
+
+  @@index([user_id])
+  @@map("orders")
+}
+
+model OrderItem {
+  uuid       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_id   String? @db.Uuid
+  product_id String? @db.Uuid
+  quantity   Int     @default(1)
+  unit_price Decimal @db.Decimal(10, 2)
+
+  order   Order?   @relation(fields: [order_id], references: [uuid], onDelete: Cascade)
+  product Product? @relation(fields: [product_id], references: [uuid], onDelete: Restrict)
+
+  @@index([order_id])
+  @@index([product_id])
+  @@map("order_items")
+}
+
+// AI CHATBOT CONSULTANT
+model Chat {
+  uuid         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String?  @db.Uuid
+  last_updated DateTime @default(now()) @db.Timestamptz
+  created_at   DateTime @default(now()) @db.Timestamptz
+
+  user     User?     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([user_id])
+  @@map("chats")
+}
+
+model Message {
+  uuid       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  chat_id    String?  @db.Uuid
+  role       String   @db.VarChar(50)
+  part       String
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  chat            Chat?                   @relation(fields: [chat_id], references: [uuid], onDelete: Cascade)
+  recommendations MessageRecommendation[]
+
+  @@index([chat_id])
+  @@map("messages")
+}
+
+model MessageRecommendation {
+  uuid        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  messages_id String? @db.Uuid
+  product_id  String? @db.Uuid
+
+  message Message? @relation(fields: [messages_id], references: [uuid], onDelete: Cascade)
+  product Product? @relation(fields: [product_id], references: [uuid], onDelete: SetNull)
+
+  @@index([messages_id])
+  @@index([product_id])
+  @@map("message_recommendations")
+}
+
+model Cart {
+  uuid       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String?  @db.Uuid
+  session_id String?  @db.VarChar(255)
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  // Relations
+  user  User?      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@index([user_id])
+  @@index([session_id])
+  @@map("carts")
+}
+
+model CartItem {
+  uuid       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cart_id    String?  @db.Uuid
+  product_id String?  @db.Uuid
+  quantity   Int      @default(1)
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  cart    Cart?    @relation(fields: [cart_id], references: [uuid], onDelete: Cascade)
+  product Product? @relation(fields: [product_id], references: [uuid], onDelete: Restrict)
+
+  @@unique([cart_id, product_id]) // Prevents duplicate product rows in the same cart
+  @@index([cart_id])
+  @@index([product_id])
+  @@map("cart_items")
+}
