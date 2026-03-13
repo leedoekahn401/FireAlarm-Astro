@@ -77,12 +77,20 @@ export const orderController = {
             const productMap = new Map(products.map(p => [p.uuid, p]));
             let total = new Prisma.Decimal(0);
 
-            const orderItemsData = items.map((item: any) => {
+            for (const item of items) {
                 const product = productMap.get(item.product_id);
                 if (!product) throw new Error("Product data missing");
 
                 const quantity = item.quantity || 1;
-                const price = product.price;
+                if (product.stock < quantity) {
+                    return Response.json({ error: `Insufficient stock for product: ${product.name}` }, { status: 400 });
+                }
+            }
+
+            const orderItemsData = items.map((item: any) => {
+                const product = productMap.get(item.product_id);
+                const quantity = item.quantity || 1;
+                const price = product!.price;
                 total = total.plus(price.times(quantity));
 
                 return {
@@ -93,6 +101,16 @@ export const orderController = {
             });
 
             const result = await prisma.$transaction(async (tx) => {
+                // Reduce stock for each item
+                for (const item of orderItemsData) {
+                    await tx.product.update({
+                        where: { uuid: item.product_id },
+                        data: {
+                            stock: { decrement: item.quantity }
+                        }
+                    });
+                }
+
                 const order = await tx.order.create({
                     data: {
                         user_id: session.user.id,
@@ -108,13 +126,19 @@ export const orderController = {
                         order_items: true
                     }
                 });
+
+                // Clear the user's cart after successful order creation
+                await tx.cart.deleteMany({
+                    where: { user_id: session.user.id }
+                });
+
                 return order;
             });
 
             return Response.json({ data: result }, { status: 201 });
         } catch (error) {
             console.error(error);
-            return Response.json({ error: "Query Failed" }, { status: 500 })
+            return Response.json({ error: "Order Creation Failed" }, { status: 500 })
         }
     },
 }

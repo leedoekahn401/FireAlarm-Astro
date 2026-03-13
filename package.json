@@ -16,6 +16,7 @@
     "@prisma/adapter-neon": "^7.5.0",
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.5.0",
+    "@tailwindcss/vite": "^4.2.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "astro": "^6.0.3",
@@ -23,7 +24,8 @@
     "lucide-react": "^0.577.0",
     "pg": "^8.20.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.1"
   },
   "description": "```sh npm create astro@latest -- --template basics ```",
   "main": "index.js",
